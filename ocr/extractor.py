@@ -1,18 +1,14 @@
 import pytesseract
-<<<<<<< HEAD
 import os
 
-# Windows için Tesseract yolunu belirt (Genellikle buradadır)
+# Windows için Tesseract yolunu belirt
 if os.name == 'nt':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-=======
->>>>>>> e6a7394af1d436c3fc16de8d7ba6b7647b571273
 import fitz  # PyMuPDF
 from pdf2image import convert_from_path
 from PIL import Image
 from ocr.preprocessor import preprocess_image, preprocess_for_lang
-import os
 import uuid
 import tempfile
 
@@ -24,10 +20,17 @@ LANGUAGES = {
     "auto": "eng+tur+ukr"
 }
 
+def extract_text(file_path, lang="auto"):
+    """Dosya tipine göre metin çıkarır (Resim veya PDF)."""
+    ext = file_path.rsplit('.', 1)[1].lower()
+    
+    if ext == 'pdf':
+        return extract_from_pdf(file_path, lang=lang)
+    else:
+        return extract_from_image(file_path, lang=lang)
 
 def extract_from_image(image_path, lang="auto", preprocess=True):
     """Görüntüden metin çıkarır."""
-    
     lang_code = LANGUAGES.get(lang, "eng+tur+ukr")
     
     if preprocess:
@@ -36,85 +39,35 @@ def extract_from_image(image_path, lang="auto", preprocess=True):
         img = Image.open(image_path)
     
     config = "--oem 3 --psm 6"
-    
     text = pytesseract.image_to_string(img, lang=lang_code, config=config)
-    
-    data = pytesseract.image_to_data(
-        img, lang=lang_code, config=config,
-        output_type=pytesseract.Output.DICT
-    )
-    
-    confidences = [int(c) for c in data["conf"] if str(c).isdigit() and int(c) > 0]
-    avg_confidence = sum(confidences) / len(confidences) if confidences else 0
-    
-    return {
-        "text": text.strip(),
-        "confidence": round(avg_confidence, 2),
-        "language": lang,
-        "type": "image"
-    }
-
+    return text.strip()
 
 def extract_from_pdf(pdf_path, lang="auto"):
-    """PDF'den metin çıkarır."""
+    """PDF dosyasından metin çıkarır (Hem metin tabanlı hem taranmış)."""
+    text = ""
     
-    lang_code = LANGUAGES.get(lang, "eng+tur+ukr")
-    
-    # Önce PyMuPDF ile direkt metin çıkarmayı dene
-    doc = fitz.open(pdf_path)
-    direct_text = ""
-    page_count = len(doc)
-    
-    for page in doc:
-        direct_text += page.get_text()
-    
-    doc.close()
-    
-    # Eğer direkt metin varsa kullan
-    if len(direct_text.strip()) > 50:
-        return {
-            "text": direct_text.strip(),
-            "confidence": 100.0,
-            "language": lang,
-            "type": "pdf_direct",
-            "pages": page_count
-        }
-    
-    # Taranmış PDF ise görüntüye çevir ve OCR uygula
-    images = convert_from_path(pdf_path, dpi=300)
-    full_text = ""
-    all_confidences = []
-    
-    for i, image in enumerate(images):
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, f"ocr_page_{uuid.uuid4().hex}_{i}.png")
-        image.save(temp_path, "PNG")
+    try:
+        # 1. Önce metin tabanlı mı diye kontrol et (PyMuPDF ile)
+        doc = fitz.open(pdf_path)
+        for page in doc:
+            text += page.get_text()
+        doc.close()
         
-        result = extract_from_image(temp_path, lang=lang)
-        full_text += f"\n--- Sayfa {i+1} ---\n{result['text']}\n"
-        all_confidences.append(result["confidence"])
+        # Eğer metin çok azsa veya boşsa, taranmış PDF olabilir, OCR yap
+        if len(text.strip()) < 50:
+            text = ""
+            # PDF'i resimlere dönüştür
+            images = convert_from_path(pdf_path)
+            for i, image in enumerate(images):
+                # Geçici resim dosyası oluştur
+                temp_name = f"temp_page_{i}_{uuid.uuid4()}.png"
+                image.save(temp_name)
+                text += extract_from_image(temp_name, lang=lang) + "\n\n"
+                # Temizle
+                if os.path.exists(temp_name):
+                    os.remove(temp_name)
+                    
+    except Exception as e:
+        print(f"PDF işleme hatası: {e}")
         
-        os.remove(temp_path)
-    
-    avg_conf = sum(all_confidences) / len(all_confidences) if all_confidences else 0
-    
-    return {
-        "text": full_text.strip(),
-        "confidence": round(avg_conf, 2),
-        "language": lang,
-        "type": "pdf_scanned",
-        "pages": len(images)
-    }
-
-
-def extract_text(file_path, lang="auto"):
-    """Dosya türüne göre otomatik metin çıkarır."""
-    
-    ext = os.path.splitext(file_path)[1].lower()
-    
-    if ext in [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]:
-        return extract_from_image(file_path, lang=lang)
-    elif ext == ".pdf":
-        return extract_from_pdf(file_path, lang=lang)
-    else:
-        raise ValueError(f"Desteklenmeyen dosya türü: {ext}")
+    return text.strip()

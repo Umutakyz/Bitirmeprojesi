@@ -33,13 +33,9 @@ const i18n = {
         meta_conf: "🎯 Güven: %",
         meta_lang: "🌐 Dil: ",
         meta_type: "📄 Tür: ",
-<<<<<<< HEAD
         translated_to: "diline çevrildi",
         footer_text: "Mezuniyet Projesi",
         about_me: "Ben Umut Ferhat Akyüz. Igor Sikorsky Kyiv Politeknik Enstitüsü'nde 4. sınıf öğrencisiyim. Bu benim bitirme projemdir."
-=======
-        translated_to: "diline çevrildi"
->>>>>>> e6a7394af1d436c3fc16de8d7ba6b7647b571273
     },
     en: {
         title: "📄 OCR & Audio Transcription",
@@ -75,91 +71,76 @@ const i18n = {
         meta_conf: "🎯 Confidence: %",
         meta_lang: "🌐 Lang: ",
         meta_type: "📄 Type: ",
-<<<<<<< HEAD
         translated_to: "translated to",
         footer_text: "Graduation Project",
         about_me: "I am Umut Ferhat Akyüz. I am a 4th-year student at Igor Sikorsky Kyiv Polytechnic Institute. This is my graduation project."
-=======
-        translated_to: "translated to"
->>>>>>> e6a7394af1d436c3fc16de8d7ba6b7647b571273
     }
 };
 
 let currentLang = "tr";
 
+// DOM Elements
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
 const extractBtn = document.getElementById("extractBtn");
-const previewSection = document.getElementById("previewSection");
-const imagePreview = document.getElementById("imagePreview");
-const audioPreview = document.getElementById("audioPreview");
-const fileInfo = document.getElementById("fileInfo");
 const loading = document.getElementById("loading");
 const loadingText = document.getElementById("loadingText");
 const resultSection = document.getElementById("resultSection");
 const resultText = document.getElementById("resultText");
 const resultMeta = document.getElementById("resultMeta");
-const errorSection = document.getElementById("errorSection");
-const errorMessage = document.getElementById("errorMessage");
 const copyBtn = document.getElementById("copyBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const clearBtn = document.getElementById("clearBtn");
+const errorSection = document.getElementById("errorSection");
+const errorMessage = document.getElementById("errorMessage");
+const previewSection = document.getElementById("previewSection");
+const imagePreview = document.getElementById("imagePreview");
+const audioPreview = document.getElementById("audioPreview");
+const fileInfo = document.getElementById("fileInfo");
 const langSelect = document.getElementById("langSelect");
-const translateBtn = document.getElementById("translateBtn");
 const targetLang = document.getElementById("targetLang");
-const translationResult = document.getElementById("translationResult");
+const translateBtn = document.getElementById("translateBtn");
 const translatedText = document.getElementById("translatedText");
+const translationResult = document.getElementById("translationResult");
 const translationMeta = document.getElementById("translationMeta");
 const copyTranslatedBtn = document.getElementById("copyTranslatedBtn");
 const downloadTranslatedBtn = document.getElementById("downloadTranslatedBtn");
+const langToggleBtn = document.getElementById("langToggleBtn");
 const recordBtn = document.getElementById("recordBtn");
 const recordingIndicator = document.getElementById("recordingIndicator");
 const recordTime = document.getElementById("recordTime");
-<<<<<<< HEAD
 const downloadPdfBtn = document.getElementById("downloadPdfBtn");
 const downloadTranslatedPdfBtn = document.getElementById("downloadTranslatedPdfBtn");
-=======
->>>>>>> e6a7394af1d436c3fc16de8d7ba6b7647b571273
 
 let selectedFile = null;
+let mediaRecorder;
+let audioChunks = [];
+let startTime;
+let timerInterval;
 
-function setLanguage(lang) {
-    currentLang = lang;
+// Dil Değiştirme
+langToggleBtn.addEventListener("click", () => {
+    currentLang = currentLang === "tr" ? "en" : "tr";
+    updateUI();
+});
+
+function updateUI() {
     document.querySelectorAll("[data-i18n]").forEach(el => {
         const key = el.getAttribute("data-i18n");
-        if (i18n[lang][key]) {
-            el.innerHTML = i18n[lang][key]; 
+        if (i18n[currentLang][key]) {
+            el.innerText = i18n[currentLang][key];
         }
     });
-
-    if (resultText.value === i18n["tr"].no_text || resultText.value === i18n["en"].no_text) {
-        resultText.value = i18n[currentLang].no_text;
-    }
+    langToggleBtn.innerText = currentLang === "tr" ? "🇬🇧 Switch to English" : "🇹🇷 Türkçe'ye Geç";
     
-    document.getElementById("langToggleBtn").textContent = lang === "tr" ? "🇬🇧 Switch to English" : "🇹🇷 Türkçe'ye Geç";
-    
-    if (recordBtn.classList.contains("recording")) {
-        recordBtn.textContent = i18n[currentLang].stop_record;
-    } else {
-        recordBtn.textContent = i18n[currentLang].record_btn;
-    }
-    
-    copyBtn.textContent = i18n[currentLang].copy_btn;
-    copyTranslatedBtn.textContent = i18n[currentLang].copy_btn;
+    // Placeholderları güncelle (eğer varsa)
+    resultText.placeholder = i18n[currentLang].no_text;
+    translatedText.placeholder = i18n[currentLang].no_text;
 }
 
-document.getElementById("langToggleBtn").addEventListener("click", () => {
-    setLanguage(currentLang === "tr" ? "en" : "tr");
-});
-
-// Tıklayınca dosya seç
+// Dosya Seçme
 dropZone.addEventListener("click", () => fileInput.click());
 
-fileInput.addEventListener("change", (e) => {
-    if (e.target.files[0]) handleFile(e.target.files[0]);
-});
-
-// Sürükle bırak
 dropZone.addEventListener("dragover", (e) => {
     e.preventDefault();
     dropZone.classList.add("dragover");
@@ -172,17 +153,52 @@ dropZone.addEventListener("dragleave", () => {
 dropZone.addEventListener("drop", (e) => {
     e.preventDefault();
     dropZone.classList.remove("dragover");
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files.length) {
+        handleFile(e.dataTransfer.files[0]);
+    }
 });
 
-let mediaRecorder;
-let audioChunks = [];
-let recordInterval;
-let recordStartTime;
+fileInput.addEventListener("change", (e) => {
+    if (e.target.files.length) {
+        handleFile(e.target.files[0]);
+    }
+});
 
+function handleFile(file) {
+    selectedFile = file;
+    extractBtn.disabled = false;
+    errorSection.style.display = "none";
+    
+    // Önizleme
+    previewSection.style.display = "block";
+    fileInfo.innerText = `${file.name} — ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+    
+    if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            imagePreview.src = e.target.result;
+            imagePreview.style.display = "block";
+            audioPreview.style.display = "none";
+        };
+        reader.readAsDataURL(file);
+    } else if (file.type.startsWith("audio/")) {
+        const url = URL.createObjectURL(file);
+        audioPreview.src = url;
+        audioPreview.style.display = "block";
+        imagePreview.style.display = "none";
+    } else {
+        imagePreview.style.display = "none";
+        audioPreview.style.display = "none";
+    }
+}
+
+// Ses Kaydı
 recordBtn.addEventListener("click", async () => {
     if (mediaRecorder && mediaRecorder.state === "recording") {
         mediaRecorder.stop();
+        recordBtn.innerText = i18n[currentLang].record_btn;
+        recordingIndicator.style.display = "none";
+        clearInterval(timerInterval);
         return;
     }
 
@@ -191,89 +207,33 @@ recordBtn.addEventListener("click", async () => {
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
 
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) audioChunks.push(e.data);
-        };
-
+        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
         mediaRecorder.onstop = () => {
-            clearInterval(recordInterval);
-            recordBtn.textContent = i18n[currentLang].record_btn;
-            recordBtn.classList.remove("recording");
-            recordingIndicator.style.display = "none";
-            
-            const mimeType = mediaRecorder.mimeType || "audio/webm";
-            let ext = "webm";
-            if (mimeType.includes("mp4")) ext = "mp4";
-            else if (mimeType.includes("ogg")) ext = "ogg";
-            else if (mimeType.includes("mpeg")) ext = "mp3";
-            
-            const audioBlob = new Blob(audioChunks, { type: mimeType });
-            const file = new File([audioBlob], `ses_kaydi.${ext}`, { type: mimeType });
-            
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
-            
+            const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+            const file = new File([audioBlob], "recorded_audio.wav", { type: "audio/wav" });
             handleFile(file);
-            
             stream.getTracks().forEach(track => track.stop());
         };
 
         mediaRecorder.start();
-        recordStartTime = Date.now();
-        
-        recordBtn.textContent = i18n[currentLang].stop_record;
-        recordBtn.classList.add("recording");
-        recordingIndicator.style.display = "inline-block";
-        
-        recordInterval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
-            const mins = String(Math.floor(elapsed / 60)).padStart(2, "0");
-            const secs = String(elapsed % 60).padStart(2, "0");
-            recordTime.textContent = `${mins}:${secs}`;
-        }, 1000);
-
+        recordBtn.innerText = i18n[currentLang].stop_record;
+        recordingIndicator.style.display = "inline";
+        startTime = Date.now();
+        updateTimer();
+        timerInterval = setInterval(updateTimer, 1000);
     } catch (err) {
         showError(i18n[currentLang].error_mic + err.message);
     }
 });
 
-function handleFile(file) {
-    selectedFile = file;
-    extractBtn.disabled = false;
-
-    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-    fileInfo.textContent = `${file.name} — ${sizeMB} MB`;
-
-    if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            imagePreview.src = e.target.result;
-            imagePreview.style.display = "block";
-            audioPreview.style.display = "none";
-            audioPreview.src = "";
-        };
-        reader.readAsDataURL(file);
-    } else if (file.type.startsWith("audio/") || file.name.match(/\.(mp3|wav|ogg|m4a|webm|flac)$/i)) {
-        const url = URL.createObjectURL(file);
-        audioPreview.src = url;
-        audioPreview.style.display = "block";
-        imagePreview.style.display = "none";
-        imagePreview.src = "";
-    } else {
-        imagePreview.style.display = "none";
-        imagePreview.src = "";
-        audioPreview.style.display = "none";
-        audioPreview.src = "";
-    }
-
-    previewSection.style.display = "block";
-    hideError();
-    resultSection.style.display = "none";
-    translationResult.style.display = "none";
+function updateTimer() {
+    const diff = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(diff / 60).toString().padStart(2, "0");
+    const s = (diff % 60).toString().padStart(2, "0");
+    recordTime.innerText = `${m}:${s}`;
 }
 
-// OCR işlemi
+// Metin Çıkar
 extractBtn.addEventListener("click", async () => {
     if (!selectedFile) return;
 
@@ -281,106 +241,93 @@ extractBtn.addEventListener("click", async () => {
     formData.append("file", selectedFile);
     formData.append("lang", langSelect.value);
 
-    const isAudio = selectedFile.type.startsWith("audio/") || selectedFile.name.match(/\.(mp3|wav|ogg|m4a|webm|flac)$/i);
-    const endpoint = isAudio ? "/transcribe" : "/extract";
-    const loadingMsg = isAudio ? i18n[currentLang].loading_audio : i18n[currentLang].loading_ocr;
-
-    showLoading(loadingMsg);
-    hideError();
+    const isAudio = selectedFile.type.startsWith("audio/") || selectedFile.name.endsWith(".wav");
+    loadingText.innerText = isAudio ? i18n[currentLang].loading_audio : i18n[currentLang].loading_ocr;
+    
+    showLoading(true);
     resultSection.style.display = "none";
+    errorSection.style.display = "none";
+    translationResult.style.display = "none";
 
     try {
-        const response = await fetch(endpoint, {
+        const response = await fetch("/extract", {
             method: "POST",
             body: formData
         });
-
         const data = await response.json();
 
-        if (data.success) {
-            showResult(data);
+        if (data.error) {
+            showError(data.error);
         } else {
-            showError(data.error || "Bir hata oluştu");
+            resultText.value = data.text || i18n[currentLang].no_text;
+            resultMeta.innerHTML = `
+                <span>${i18n[currentLang].meta_type} ${data.type.toUpperCase()}</span>
+                <span>${i18n[currentLang].meta_lang} ${data.language.toUpperCase()}</span>
+            `;
+            resultSection.style.display = "block";
+            resultSection.scrollIntoView({ behavior: "smooth" });
         }
     } catch (err) {
         showError(i18n[currentLang].error_server + err.message);
     } finally {
-        hideLoading();
+        showLoading(false);
     }
 });
 
-// Çeviri işlemi
+// Çevir
 translateBtn.addEventListener("click", async () => {
     const text = resultText.value;
-    if (!text || text === i18n["tr"].no_text || text === i18n["en"].no_text) {
+    if (!text || text === i18n[currentLang].no_text) {
         showError(i18n[currentLang].error_no_text);
         return;
     }
 
-    showLoading(i18n[currentLang].loading_trans);
-    hideError();
-    translationResult.style.display = "none";
+    const target = targetLang.value;
+    loadingText.innerText = i18n[currentLang].loading_trans;
+    showLoading(true);
 
     try {
         const response = await fetch("/translate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                text: text,
-                target_lang: targetLang.value
-            })
+            body: JSON.stringify({ text, target_lang: target })
         });
-
         const data = await response.json();
 
-        if (data.success) {
-            translatedText.value = data.translated_text;
-            translationMeta.innerHTML = `<span>🌍 ${data.target_lang} ${i18n[currentLang].translated_to}</span>`;
-            translationResult.style.display = "block";
+        if (data.error) {
+            showError(data.error);
         } else {
-            showError(data.error || "Çeviri hatası");
+            translatedText.value = data.translated_text;
+            translationMeta.innerHTML = `<span>${target} ${i18n[currentLang].translated_to}</span>`;
+            translationResult.style.display = "block";
+            translationResult.scrollIntoView({ behavior: "smooth" });
         }
     } catch (err) {
         showError(i18n[currentLang].error_server + err.message);
     } finally {
-        hideLoading();
+        showLoading(false);
     }
 });
 
-function showResult(data) {
-    resultText.value = data.text || i18n[currentLang].no_text;
-    resultMeta.innerHTML = `
-        <span>${i18n[currentLang].meta_conf}${data.confidence}</span>
-        <span>${i18n[currentLang].meta_lang}${data.language}</span>
-        <span>${i18n[currentLang].meta_type}${data.type}</span>
-    `;
-    resultSection.style.display = "block";
-    translationResult.style.display = "none";
-}
-
 // Kopyala
-copyBtn.addEventListener("click", () => {
-    navigator.clipboard.writeText(resultText.value);
-    copyBtn.textContent = i18n[currentLang].copied;
-    setTimeout(() => copyBtn.textContent = i18n[currentLang].copy_btn, 2000);
-});
+copyBtn.addEventListener("click", () => copyToClipboard(resultText.value, copyBtn));
+copyTranslatedBtn.addEventListener("click", () => copyToClipboard(translatedText.value, copyTranslatedBtn));
 
-copyTranslatedBtn.addEventListener("click", () => {
-    navigator.clipboard.writeText(translatedText.value);
-    copyTranslatedBtn.textContent = i18n[currentLang].copied;
-    setTimeout(() => copyTranslatedBtn.textContent = i18n[currentLang].copy_btn, 2000);
-});
+function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = i18n[currentLang].copied;
+        setTimeout(() => btn.innerText = originalText, 2000);
+    });
+}
 
 // İndir
 downloadBtn.addEventListener("click", () => downloadTxt(resultText.value, "ocr_sonuc.txt"));
 downloadTranslatedBtn.addEventListener("click", () => downloadTxt(translatedText.value, "ceviri_sonuc.txt"));
 
-<<<<<<< HEAD
 downloadPdfBtn.addEventListener("click", () => downloadPdf(resultText.value, "ocr_sonuc.pdf"));
 downloadTranslatedPdfBtn.addEventListener("click", () => downloadPdf(translatedText.value, "ceviri_sonuc.pdf"));
 
-=======
->>>>>>> e6a7394af1d436c3fc16de8d7ba6b7647b571273
 function downloadTxt(content, filename) {
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -391,14 +338,14 @@ function downloadTxt(content, filename) {
     URL.revokeObjectURL(url);
 }
 
-<<<<<<< HEAD
 async function downloadPdf(content, filename) {
     if (!content || content === i18n["tr"].no_text || content === i18n["en"].no_text) {
         showError(i18n[currentLang].error_no_text);
         return;
     }
 
-    showLoading(i18n[currentLang].loading_trans);
+    loadingText.innerText = i18n[currentLang].loading_trans;
+    showLoading(true);
     
     try {
         const response = await fetch("/download_pdf", {
@@ -422,38 +369,32 @@ async function downloadPdf(content, filename) {
     } catch (err) {
         showError(i18n[currentLang].error_server + err.message);
     } finally {
-        hideLoading();
+        showLoading(false);
     }
 }
 
-=======
->>>>>>> e6a7394af1d436c3fc16de8d7ba6b7647b571273
 // Temizle
 clearBtn.addEventListener("click", () => {
     selectedFile = null;
     fileInput.value = "";
-    extractBtn.disabled = true;
-    previewSection.style.display = "none";
+    resultText.value = "";
+    translatedText.value = "";
     resultSection.style.display = "none";
-    translationResult.style.display = "none";
-    imagePreview.src = "";
-    audioPreview.src = "";
-    audioPreview.style.display = "none";
-    fileInfo.textContent = "";
-    hideError();
-
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-    }
+    previewSection.style.display = "none";
+    extractBtn.disabled = true;
 });
 
-function showLoading(msg) {
-    loadingText.textContent = msg || "İşlem yapılıyor...";
-    loading.style.display = "block";
+// Helper Functions
+function showLoading(show) {
+    loading.style.display = show ? "block" : "none";
+    extractBtn.disabled = show;
 }
-function hideLoading() { loading.style.display = "none"; }
+
 function showError(msg) {
-    errorMessage.textContent = "❌ " + msg;
+    errorMessage.innerText = msg;
     errorSection.style.display = "block";
+    errorSection.scrollIntoView({ behavior: "smooth" });
 }
-function hideError() { errorSection.style.display = "none"; }
+
+// Init
+updateUI();
