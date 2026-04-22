@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Scan & Transcribe</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="bg-blur"></div>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <button id="langToggleBtn">🇬🇧 Switch to English</button>
+            </div>
+            <h1 data-i18n="title">📄 OCR & Ses Metin Çıkarma</h1>
+            <p data-i18n="subtitle">Fotoğraf, PDF veya Ses dosyası yükle, metni anında çıkar ve çevir</p>
+        </header>
+
+        <main>
+            <!-- Yükleme Alanı -->
+            <div class="upload-section">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-content">
+                        <span class="icon">📁</span>
+                        <p data-i18n="dropzone_title">Dosyayı buraya sürükle veya tıkla</p>
+                        <small data-i18n="dropzone_desc">PNG, JPG, PDF, MP3, WAV, vb. — Max 16MB</small>
+                    </div>
+                    <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.bmp,.tiff,.webp,.pdf,.mp3,.wav,.ogg,.m4a,.webm,.flac" hidden>
+                </div>
+                
+                <div class="record-section" style="text-align: center; margin-top: 15px;">
+                    <button id="recordBtn" class="record-btn" data-i18n="record_btn">🎤 Ses Kaydet</button>
+                    <span id="recordingIndicator" class="recording-indicator" style="display:none;"><span data-i18n="recording">🔴 Kaydediliyor...</span> <span id="recordTime">00:00</span></span>
+                </div>
+
+                <div class="preview-section" id="previewSection" style="display:none;">
+                    <img id="imagePreview" src="" alt="Önizleme">
+                    <audio id="audioPreview" controls style="display:none; width: 100%; margin-top: 10px;"></audio>
+                    <div class="file-info" id="fileInfo"></div>
+                </div>
+            </div>
+
+            <!-- Dil Seçimi -->
+            <div class="options-section">
+                <label for="langSelect" data-i18n="ocr_lang">OCR Dili:</label>
+                <select id="langSelect">
+                    <option value="auto" data-i18n="lang_auto">🌐 Otomatik</option>
+                    <option value="english" data-i18n="lang_en">🇬🇧 İngilizce</option>
+                    <option value="turkish" data-i18n="lang_tr">🇹🇷 Türkçe</option>
+                    <option value="ukrainian" data-i18n="lang_uk">🇺🇦 Ukraynaca</option>
+                </select>
+            </div>
+
+            <!-- Buton -->
+            <button class="extract-btn" id="extractBtn" disabled data-i18n="extract_btn">
+                Metni Çıkar / Sesi Çevir
+            </button>
+
+            <!-- Yükleniyor -->
+            <div class="loading" id="loading" style="display:none;">
+                <div class="spinner"></div>
+                <p id="loadingText" data-i18n="loading">İşlem yapılıyor...</p>
+            </div>
+
+            <!-- Sonuç -->
+            <div class="result-section" id="resultSection" style="display:none;">
+                <div class="result-header">
+                    <h2 data-i18n="extracted_text">Çıkarılan Metin</h2>
+                    <div class="result-meta" id="resultMeta"></div>
+                </div>
+                <textarea id="resultText" readonly></textarea>
+                <div class="result-actions">
+                    <button class="copy-btn" id="copyBtn" data-i18n="copy_btn">📋 Kopyala</button>
+                    <button class="download-btn" id="downloadBtn" data-i18n="download_btn">⬇️ TXT İndir</button>
+                    <button class="pdf-btn" id="downloadPdfBtn">📕 PDF İndir</button>
+                    <button class="clear-btn" id="clearBtn" data-i18n="clear_btn">🗑️ Temizle</button>
+                </div>
+
+                <!-- Çeviri Bölümü -->
+                <div class="translate-section">
+                    <h2 data-i18n="translate_title">🌍 Çeviri</h2>
+                    <div class="translate-options">
+                        <label for="targetLang" data-i18n="target_lang">Hedef Dil:</label>
+                        <select id="targetLang">
+                            <option value="İngilizce">🇬🇧 English</option>
+                            <option value="Türkçe">🇹🇷 Türkçe</option>
+                            <option value="Ukraynaca">🇺🇦 Ukraynaca</option>
+                            <option value="Almanca">🇩🇪 Almanca</option>
+                            <option value="Fransızca">🇫🇷 Fransızca</option>
+                            <option value="İspanyolca">🇪🇸 İspanyolca</option>
+                            <option value="Rusça">🇷🇺 Rusça</option>
+                            <option value="Arapça">🇸🇦 Arapça</option>
+                        </select>
+                        <button class="translate-btn" id="translateBtn" data-i18n="translate_btn">Çevir</button>
+                    </div>
+                    <div id="translationResult" style="display:none;">
+                        <div class="result-header">
+                            <h3 data-i18n="translated_text_title">Çevrilmiş Metin</h3>
+                            <div class="result-meta" id="translationMeta"></div>
+                        </div>
+                        <textarea id="translatedText" readonly></textarea>
+                        <div class="result-actions">
+                            <button class="copy-btn" id="copyTranslatedBtn" data-i18n="copy_btn">📋 Kopyala</button>
+                            <button class="download-btn" id="downloadTranslatedBtn" data-i18n="download_btn">⬇️ TXT İndir</button>
+                            <button class="pdf-btn" id="downloadTranslatedPdfBtn">📕 PDF İndir</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hata -->
+            <div class="error-section" id="errorSection" style="display:none;">
+                <p id="errorMessage"></p>
+            </div>
+        </main>
+
+        <footer>
+            <div class="tech-stack">
+                <span class="tech-item">🐍 Python Flask</span>
+                <span class="tech-item">👁️ Tesseract OCR</span>
+                <span class="tech-item">📸 OpenCV</span>
+                <span class="tech-item">🎤 Google Speech</span>
+                <span class="tech-item">🌍 Deep Translate</span>
+            </div>
+            <div class="developer-info">
+                <p data-i18n="about_me">Ben Umut Ferhat Akyüz. Igor Sikorsky Kyiv Politeknik Enstitüsü'nde 4. sınıf öğrencisiyim. Bu benim bitirme projemdir.</p>
+            </div>
+            <p class="copyright">&copy; 2026 AI Scan & Transcribe - <span data-i18n="footer_text">Mezuniyet Projesi</span></p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
