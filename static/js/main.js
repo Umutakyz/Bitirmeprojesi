@@ -34,6 +34,12 @@ const i18n = {
         meta_lang: "🌐 Dil: ",
         meta_type: "📄 Tür: ",
         translated_to: "diline çevrildi",
+        pdf_btn: "📕 PDF İndir",
+        lang_de: "🇩🇪 Almanca",
+        lang_fr: "🇫🇷 Fransızca",
+        lang_es: "🇪🇸 İspanyolca",
+        lang_ru: "🇷🇺 Rusça",
+        lang_ar: "🇸🇦 Arapça",
         footer_text: "Mezuniyet Projesi",
         about_me: "Ben Umut Ferhat Akyüz. Igor Sikorsky Kyiv Politeknik Enstitüsü'nde 4. sınıf öğrencisiyim. Bu benim bitirme projemdir."
     },
@@ -72,6 +78,12 @@ const i18n = {
         meta_lang: "🌐 Lang: ",
         meta_type: "📄 Type: ",
         translated_to: "translated to",
+        pdf_btn: "📕 Download PDF",
+        lang_de: "🇩🇪 German",
+        lang_fr: "🇫🇷 French",
+        lang_es: "🇪🇸 Spanish",
+        lang_ru: "🇷🇺 Russian",
+        lang_ar: "🇸🇦 Arabic",
         footer_text: "Graduation Project",
         about_me: "I am Umut Ferhat Akyüz. I am a 4th-year student at Igor Sikorsky Kyiv Polytechnic Institute. This is my graduation project."
     }
@@ -128,7 +140,11 @@ function updateUI() {
     document.querySelectorAll("[data-i18n]").forEach(el => {
         const key = el.getAttribute("data-i18n");
         if (i18n[currentLang][key]) {
-            el.innerText = i18n[currentLang][key];
+            if (el.tagName === "OPTION") {
+                el.text = i18n[currentLang][key];
+            } else {
+                el.innerText = i18n[currentLang][key];
+            }
         }
     });
     langToggleBtn.innerText = currentLang === "tr" ? "🇬🇧 Switch to English" : "🇹🇷 Türkçe'ye Geç";
@@ -298,7 +314,8 @@ translateBtn.addEventListener("click", async () => {
             showError(data.error);
         } else {
             translatedText.value = data.translated_text;
-            translationMeta.innerHTML = `<span>${target} ${i18n[currentLang].translated_to}</span>`;
+            const targetName = targetLang.options[targetLang.selectedIndex].text;
+            translationMeta.innerHTML = `<span>${targetName} ${i18n[currentLang].translated_to}</span>`;
             translationResult.style.display = "block";
             translationResult.scrollIntoView({ behavior: "smooth" });
         }

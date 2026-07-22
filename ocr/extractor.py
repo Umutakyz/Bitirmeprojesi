@@ -17,7 +17,12 @@ LANGUAGES = {
     "english": "eng",
     "turkish": "tur",
     "ukrainian": "ukr",
-    "auto": "eng+tur+ukr"
+    "german": "deu",
+    "french": "fra",
+    "spanish": "spa",
+    "russian": "rus",
+    "arabic": "ara",
+    "auto": "eng+tur+ukr+deu+fra+spa+rus+ara"
 }
 
 def extract_text(file_path, lang="auto"):
@@ -38,7 +43,10 @@ def extract_from_image(image_path, lang="auto", preprocess=True):
     else:
         img = Image.open(image_path)
     
-    config = "--oem 3 --psm 6"
+    # Proje içindeki yerel tessdata klasörünü kullan
+    tessdata_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "tessdata"))
+    config = f'--tessdata-dir "{tessdata_dir}" --oem 3 --psm 3'
+    
     text = pytesseract.image_to_string(img, lang=lang_code, config=config)
     return text.strip()
 

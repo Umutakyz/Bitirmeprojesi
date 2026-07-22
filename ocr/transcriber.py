@@ -8,6 +8,11 @@ LANGUAGES = {
     "turkish": "tr-TR",
     "english": "en-US",
     "ukrainian": "uk-UA",
+    "german": "de-DE",
+    "french": "fr-FR",
+    "spanish": "es-ES",
+    "russian": "ru-RU",
+    "arabic": "ar-SA",
     "auto": "tr-TR"
 }
 

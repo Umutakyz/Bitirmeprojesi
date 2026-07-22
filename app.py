@@ -115,11 +115,11 @@ def download_pdf():
             font_name = "helvetica"
         
         pdf.set_font(font_name, style="B", size=16)
-        pdf.cell(190, 10, txt="AI Scan & Transcribe - Sonuc Raporu", ln=True, align="C")
+        pdf.cell(190, 10, text="AI Scan & Transcribe - Sonuc Raporu", new_x="LMARGIN", new_y="NEXT", align="C")
         pdf.ln(10)
         
         pdf.set_font(font_name, size=11)
-        pdf.multi_cell(0, 10, txt=text)
+        pdf.multi_cell(0, 10, text=text)
         
         pdf_output = pdf.output()
         
