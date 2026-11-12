@@ -3,7 +3,7 @@ const i18n = {
         title: "📄 OCR & Ses Metin Çıkarma",
         subtitle: "Fotoğraf, PDF veya Ses dosyası yükle, metni anında çıkar ve çevir",
         dropzone_title: "Dosyayı buraya sürükle veya tıkla",
-        dropzone_desc: "PNG, JPG, PDF, MP3, WAV, vb. — Max 16MB",
+        dropzone_desc: "PNG, JPG, PDF, MP3, WAV, vb. — Max 512MB",
         record_btn: "🎤 Ses Kaydet",
         recording: "🔴 Kaydediliyor... ",
         stop_record: "⏹️ Kaydı Durdur",
@@ -41,13 +41,24 @@ const i18n = {
         lang_ru: "🇷🇺 Rusça",
         lang_ar: "🇸🇦 Arapça",
         footer_text: "Mezuniyet Projesi",
-        about_me: "Ben Umut Ferhat Akyüz. Igor Sikorsky Kyiv Politeknik Enstitüsü'nde 4. sınıf öğrencisiyim. Bu benim bitirme projemdir."
+        about_me: "Ben Umut Ferhat Akyüz. Igor Sikorsky Kyiv Politeknik Enstitüsü'nde 4. sınıf öğrencisiyim. Bu benim bitirme projemdir.",
+        phase_queued: "Sırada bekliyor...",
+        phase_loading_model: "Model yükleniyor (ilk seferde indirilebilir, birkaç dakika sürebilir)...",
+        phase_transcribing: "Ses metne çevriliyor... %",
+        progress_hint: "Sekmeyi kapatabilirsin; işlem arka planda sürer, sonuç Geçmiş'e kaydedilir.",
+        timestamps_toggle: "Zaman damgalarını göster",
+        meta_duration: "⏱️ Süre: ",
+        history_title: "🗂️ Geçmiş",
+        history_empty: "Henüz kayıt yok.",
+        open_btn: "Aç",
+        delete_btn: "Sil",
+        delete_confirm: "Bu kayıt silinsin mi?"
     },
     en: {
         title: "📄 OCR & Audio Transcription",
         subtitle: "Upload a Photo, PDF or Audio file to extract instantly and translate",
         dropzone_title: "Drag and drop the file here or click",
-        dropzone_desc: "PNG, JPG, PDF, MP3, WAV, etc. — Max 16MB",
+        dropzone_desc: "PNG, JPG, PDF, MP3, WAV, etc. — Max 512MB",
         record_btn: "🎤 Record Audio",
         recording: "🔴 Recording... ",
         stop_record: "⏹️ Stop Recording",
@@ -85,7 +96,18 @@ const i18n = {
         lang_ru: "🇷🇺 Russian",
         lang_ar: "🇸🇦 Arabic",
         footer_text: "Graduation Project",
-        about_me: "I am Umut Ferhat Akyüz. I am a 4th-year student at Igor Sikorsky Kyiv Polytechnic Institute. This is my graduation project."
+        about_me: "I am Umut Ferhat Akyüz. I am a 4th-year student at Igor Sikorsky Kyiv Polytechnic Institute. This is my graduation project.",
+        phase_queued: "Waiting in queue...",
+        phase_loading_model: "Loading model (may download on first use, can take a few minutes)...",
+        phase_transcribing: "Transcribing audio... %",
+        progress_hint: "You can close the tab; the job keeps running and the result is saved to History.",
+        timestamps_toggle: "Show timestamps",
+        meta_duration: "⏱️ Duration: ",
+        history_title: "🗂️ History",
+        history_empty: "No records yet.",
+        open_btn: "Open",
+        delete_btn: "Delete",
+        delete_confirm: "Delete this record?"
     }
 };
 
@@ -124,7 +146,17 @@ const recordTime = document.getElementById("recordTime");
 const downloadPdfBtn = document.getElementById("downloadPdfBtn");
 const downloadTranslatedPdfBtn = document.getElementById("downloadTranslatedPdfBtn");
 
+const progress = document.getElementById("progress");
+const progressBar = document.getElementById("progressBar");
+const progressHint = document.getElementById("progressHint");
+const timestampToggle = document.getElementById("timestampToggle");
+const timestampCheck = document.getElementById("timestampCheck");
+const historyList = document.getElementById("historyList");
+const historyEmpty = document.getElementById("historyEmpty");
+
 let selectedFile = null;
+let currentResult = null;   // son gösterilen sonuç (düz + zaman damgalı metin)
+let historyItems = [];
 let mediaRecorder;
 let audioChunks = [];
 let startTime;
@@ -152,6 +184,7 @@ function updateUI() {
     // Placeholderları güncelle (eğer varsa)
     resultText.placeholder = i18n[currentLang].no_text;
     translatedText.placeholder = i18n[currentLang].no_text;
+    renderHistory();
 }
 
 // Dosya Seçme
@@ -274,25 +307,166 @@ extractBtn.addEventListener("click", async () => {
 
         if (data.error) {
             showError(data.error);
+            showLoading(false);
+        } else if (data.job_id) {
+            // Ses: arka plan işi, ilerlemeyi izle
+            pollJob(data.job_id);
         } else {
-            resultText.value = data.text || i18n[currentLang].no_text;
-            resultMeta.innerHTML = `
-                <span>${i18n[currentLang].meta_type} ${data.type.toUpperCase()}</span>
-                <span>${i18n[currentLang].meta_lang} ${data.language.toUpperCase()}</span>
-            `;
-            resultSection.style.display = "block";
-            resultSection.scrollIntoView({ behavior: "smooth" });
+            showResult(data);
+            showLoading(false);
+            loadHistory();
         }
     } catch (err) {
         showError(i18n[currentLang].error_server + err.message);
-    } finally {
         showLoading(false);
     }
 });
 
+// Sonucu göster
+function showResult(data) {
+    currentResult = data;
+    const hasStamps = !!data.text_timestamped;
+    timestampToggle.style.display = hasStamps ? "inline-flex" : "none";
+    renderResultText();
+
+    const duration = data.duration ? `<span>${i18n[currentLang].meta_duration} ${formatDuration(data.duration)}</span>` : "";
+    resultMeta.innerHTML = `
+        <span>${i18n[currentLang].meta_type} ${String(data.type).toUpperCase()}</span>
+        <span>${i18n[currentLang].meta_lang} ${String(data.language).toUpperCase()}</span>
+        ${duration}
+    `;
+    resultSection.style.display = "block";
+    translationResult.style.display = "none";
+    resultSection.scrollIntoView({ behavior: "smooth" });
+}
+
+function renderResultText() {
+    if (!currentResult) return;
+    const useStamps = timestampCheck.checked && currentResult.text_timestamped;
+    resultText.value = (useStamps ? currentResult.text_timestamped : currentResult.text) || i18n[currentLang].no_text;
+}
+
+timestampCheck.addEventListener("change", renderResultText);
+
+function formatDuration(sec) {
+    sec = Math.round(sec);
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// Arka plan işini izle
+function pollJob(jobId) {
+    localStorage.setItem("activeJob", jobId);
+    showLoading(true);
+    progress.style.display = "block";
+    progressHint.style.display = "block";
+
+    const finish = () => {
+        localStorage.removeItem("activeJob");
+        progress.style.display = "none";
+        progressHint.style.display = "none";
+        showLoading(false);
+    };
+
+    const tick = async () => {
+        let job;
+        try {
+            const response = await fetch(`/jobs/${jobId}`);
+            if (response.status === 404) {
+                finish();
+                showError((await response.json()).error);
+                return;
+            }
+            job = await response.json();
+        } catch (err) {
+            setTimeout(tick, 5000);  // sunucuya geçici ulaşılamadı, tekrar dene
+            return;
+        }
+
+        if (job.status === "done") {
+            finish();
+            const record = await (await fetch(`/history/${job.result_id}`)).json();
+            showResult(record);
+            loadHistory();
+            return;
+        }
+        if (job.status === "error") {
+            finish();
+            showError(job.error);
+            return;
+        }
+
+        const t = i18n[currentLang];
+        if (job.phase === "transcribing") {
+            loadingText.innerText = `${t.phase_transcribing}${Math.floor(job.progress)}`;
+            progress.classList.remove("indeterminate");
+            progressBar.style.width = `${job.progress}%`;
+        } else {
+            loadingText.innerText = job.phase === "queued" ? t.phase_queued : t.phase_loading_model;
+            progress.classList.add("indeterminate");
+            progressBar.style.width = "";
+        }
+        setTimeout(tick, 2000);
+    };
+    tick();
+}
+
+// Geçmiş
+async function loadHistory() {
+    try {
+        historyItems = (await (await fetch("/history")).json()).items;
+    } catch (err) {
+        historyItems = [];
+    }
+    renderHistory();
+}
+
+function renderHistory() {
+    historyList.innerHTML = "";
+    historyEmpty.style.display = historyItems.length ? "none" : "block";
+    const t = i18n[currentLang];
+
+    historyItems.forEach(item => {
+        const li = document.createElement("li");
+        li.className = "history-item";
+
+        const info = document.createElement("div");
+        info.className = "history-info";
+        const name = document.createElement("div");
+        name.className = "history-name";
+        name.textContent = item.filename;  // textContent: dosya adı HTML olarak yorumlanmaz
+        const meta = document.createElement("div");
+        meta.className = "history-meta";
+        const date = new Date(item.created * 1000).toLocaleString(currentLang === "tr" ? "tr-TR" : "en-GB");
+        meta.textContent = [date, item.duration ? formatDuration(item.duration) : null, `${item.chars} ${currentLang === "tr" ? "karakter" : "chars"}`]
+            .filter(Boolean).join(" · ");
+        info.append(name, meta);
+
+        const actions = document.createElement("div");
+        actions.className = "history-actions";
+        const openBtn = document.createElement("button");
+        openBtn.textContent = t.open_btn;
+        openBtn.addEventListener("click", async () => {
+            const response = await fetch(`/history/${item.id}`);
+            if (response.ok) showResult(await response.json());
+        });
+        const delBtn = document.createElement("button");
+        delBtn.textContent = t.delete_btn;
+        delBtn.addEventListener("click", async () => {
+            if (!confirm(t.delete_confirm)) return;
+            await fetch(`/history/${item.id}`, { method: "DELETE" });
+            loadHistory();
+        });
+        actions.append(openBtn, delBtn);
+
+        li.append(info, actions);
+        historyList.appendChild(li);
+    });
+}
+
 // Çevir
 translateBtn.addEventListener("click", async () => {
-    const text = resultText.value;
+    const text = (currentResult && currentResult.text) || resultText.value;
     if (!text || text === i18n[currentLang].no_text) {
         showError(i18n[currentLang].error_no_text);
         return;
@@ -396,6 +570,7 @@ clearBtn.addEventListener("click", () => {
     fileInput.value = "";
     resultText.value = "";
     translatedText.value = "";
+    currentResult = null;
     resultSection.style.display = "none";
     previewSection.style.display = "none";
     extractBtn.disabled = true;
@@ -415,3 +590,7 @@ function showError(msg) {
 
 // Init
 updateUI();
+loadHistory();
+// Sayfa yenilendiyse devam eden ses işini yakala
+const activeJob = localStorage.getItem("activeJob");
+if (activeJob) pollJob(activeJob);

@@ -50,7 +50,7 @@
                 <select id="langSelect">
                     <option value="auto" data-i18n="lang_auto">🌐 Otomatik</option>
                     <option value="english" data-i18n="lang_en">🇬🇧 İngilizce</option>
-                    <option value="turkish" data-i18n="lang_tr">🇹🇷 Türkçe</option>
+                    <option value="turkish" data-i18n="lang_tr" selected>🇹🇷 Türkçe</option>
                     <option value="ukrainian" data-i18n="lang_uk">🇺🇦 Ukraynaca</option>
                     <option value="german" data-i18n="lang_de">🇩🇪 Almanca</option>
                     <option value="french" data-i18n="lang_fr">🇫🇷 Fransızca</option>
@@ -69,6 +69,8 @@
             <div class="loading" id="loading" style="display:none;">
                 <div class="spinner"></div>
                 <p id="loadingText" data-i18n="loading">İşlem yapılıyor...</p>
+                <div class="progress" id="progress" style="display:none;"><div class="progress-bar" id="progressBar"></div></div>
+                <p class="progress-hint" id="progressHint" style="display:none;" data-i18n="progress_hint">Sekmeyi kapatabilirsin; işlem arka planda sürer, sonuç Geçmiş'e kaydedilir.</p>
             </div>
 
             <!-- Sonuç -->
@@ -77,6 +79,9 @@
                     <h2 data-i18n="extracted_text">Çıkarılan Metin</h2>
                     <div class="result-meta" id="resultMeta"></div>
                 </div>
+                <label class="timestamp-toggle" id="timestampToggle" style="display:none;">
+                    <input type="checkbox" id="timestampCheck"> <span data-i18n="timestamps_toggle">Zaman damgalarını göster</span>
+                </label>
                 <textarea id="resultText" readonly></textarea>
                 <div class="result-actions">
                     <button class="copy-btn" id="copyBtn" data-i18n="copy_btn">📋 Kopyala</button>
@@ -117,6 +122,13 @@
                 </div>
             </div>
 
+            <!-- Geçmiş -->
+            <div class="history-section" id="historySection">
+                <h2 data-i18n="history_title">🗂️ Geçmiş</h2>
+                <p class="history-empty" id="historyEmpty" data-i18n="history_empty">Henüz kayıt yok.</p>
+                <ul class="history-list" id="historyList"></ul>
+            </div>
+
             <!-- Hata -->
             <div class="error-section" id="errorSection" style="display:none;">
                 <p id="errorMessage"></p>
@@ -128,7 +140,7 @@
                 <span class="tech-item">🐍 Python Flask</span>
                 <span class="tech-item">👁️ Tesseract OCR</span>
                 <span class="tech-item">📸 OpenCV</span>
-                <span class="tech-item">🎤 Google Speech</span>
+                <span class="tech-item">🎤 Whisper (yerel)</span>
                 <span class="tech-item">🌍 Deep Translate</span>
             </div>
             <div class="developer-info">

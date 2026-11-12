@@ -24,3 +24,4 @@ ceviri_sonuc.txt
 
 # Tesseract & Temp
 *.tmp
+history/

@@ -49,7 +49,7 @@ After completing all installations, in the main directory:
 ```bash
 python app.py
 ```
-then you can go to your application from your browser: `http://localhost:5000`
+then you can go to your application from your browser: `http://localhost:5001`
 
 ---
 **Developer:** Umut Ferhat Akyüz

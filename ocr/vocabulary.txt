@@ -1,0 +1,12 @@
+# Whisper'a ipucu olarak verilen şirkete özel kelimeler (satır başına bir tane, # ile başlayanlar yorum).
+# Toplantılarda yanlış duyulan kelimeleri buraya ekle, bir sonraki çeviride düzelir.
+Atlas
+alan tahsis belgesi
+imza sirküsü
+organizatör
+sözleşme
+muhaberat
+yönetim kurulu
+damga vergisi
+cari kart
+TASDAK
